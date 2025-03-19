@@ -1,0 +1,38 @@
+---
+- name: Setup NFS Server and Clients
+  hosts: nfs_server
+  become: yes
+
+  tasks:
+    - name: Install NFS Server package
+      package:
+        name: nfs-kernel-server
+        state: present
+
+    - name: Create NFS shared directory
+      file:
+        path: /mnt/nfs_share
+        state: directory
+        mode: '0777'
+        owner: nobody
+        group: nogroup
+
+    - name: Configure NFS exports
+      copy:
+        dest: /etc/exports
+        content: |
+          /mnt/nfs_share  *(rw,sync,no_root_squash,no_subtree_check)
+      notify: Restart NFS Server
+
+    - name: Start and enable NFS Server
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart NFS Server
+      systemd:
+        name: nfs-server
+        state: restarted
+

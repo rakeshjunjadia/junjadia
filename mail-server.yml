@@ -1,0 +1,58 @@
+---
+- name: Setup Mail Server (Postfix + Dovecot)
+  hosts: mail_server
+  become: yes
+
+  tasks:
+    - name: Install Mail Server packages
+      package:
+        name:
+          - postfix
+          - dovecot-core
+          - dovecot-imapd
+          - mailutils
+        state: present
+
+    - name: Configure Postfix
+      copy:
+        dest: /etc/postfix/main.cf
+        content: |
+          myhostname = mail.example.com
+          mydomain = example.com
+          myorigin = $mydomain
+          inet_interfaces = all
+          mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+          relayhost =
+          mailbox_size_limit = 0
+          recipient_delimiter = +
+          inet_protocols = all
+          home_mailbox = Maildir/
+      notify: Restart Postfix
+
+    - name: Configure Dovecot
+      copy:
+        dest: /etc/dovecot/conf.d/10-mail.conf
+        content: |
+          mail_location = maildir:~/Maildir
+      notify: Restart Dovecot
+
+    - name: Ensure Postfix and Dovecot services are running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - postfix
+        - dovecot
+
+  handlers:
+    - name: Restart Postfix
+      systemd:
+        name: postfix
+        state: restarted
+
+    - name: Restart Dovecot
+      systemd:
+        name: dovecot
+        state: restarted
+

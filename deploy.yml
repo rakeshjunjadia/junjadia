@@ -1,0 +1,51 @@
+- name: Deploy Docker App
+  hosts: localhost
+  become: true
+  tasks:
+
+    - name: Install Required Packages
+      apt:
+        name: ['docker.io', 'docker-compose', 'git', 'python3-pip']
+        state: present
+        update_cache: yes
+
+    - name: Pull Latest Code from Git
+      git:
+        repo: 'https://github.com/rakeshjunjadia/junjadia.git'
+        dest: '/root/ansible/myapp'
+        version: main
+        force: yes
+
+    - name: Ensure Dockerfile exists (Auto-Generate if missing)
+      copy:
+        dest: "/root/ansible/myapp/Dockerfile"
+        content: |
+          # Base Image
+          FROM node:18
+          
+          # Set working directory
+          WORKDIR /app
+
+          # Copy package files and install dependencies
+          COPY package.json package-lock.json ./
+          RUN npm install
+
+          # Copy all source files
+          COPY . .
+
+          # Expose port
+          EXPOSE 3000
+
+          # Start the app
+          CMD ["node", "server.js"]
+
+    - name: Build New Docker Image
+      command: docker build -t myapp:latest /root/ansible/myapp
+
+    - name: Stop & Remove Old Container
+      command: docker stop rocks || true && docker rm rocks || true
+      ignore_errors: yes
+
+    - name: Run New Docker Container
+      command: docker run -d --name rocks -p 3000:3000 myapp:latest
+
