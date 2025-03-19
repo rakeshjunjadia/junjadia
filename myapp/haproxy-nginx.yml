@@ -1,0 +1,51 @@
+---
+- name: Setup HAProxy Load Balancer and Nginx Web Servers on Debian
+  hosts: all
+  become: yes
+  vars:
+    nginx_servers:
+      - { name: "debian", ip: "192.168.0.41" }
+      - { name: "debian", ip: "192.168.o.11" }
+
+  tasks:
+    - name: Install Nginx on Web Servers
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      when: "'nginx_servers' in group_names"
+
+    - name: Start and Enable Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+      when: "'nginx_servers' in group_names"
+
+    - name: Create Custom Web Page on Web Servers
+      copy:
+        dest: /var/www/html/index.html
+        content: "<h1>Server: {{ inventory_hostname }}</h1>"
+      when: "'nginx_servers' in group_names"
+
+    - name: Install HAProxy on Load Balancer
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+      when: "'haproxy' in group_names"
+
+    - name: Configure HAProxy
+      template:
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
+      when: "'haproxy' in group_names"
+
+    - name: Restart HAProxy Service
+      systemd:
+        name: haproxy
+        enabled: yes
+        state: restarted
+      when: "'haproxy' in group_names"
+

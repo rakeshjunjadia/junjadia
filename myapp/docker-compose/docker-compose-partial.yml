@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  multicallapp:
+    build:  
+      context: .
+      dockerfile: Dockerfile
+    container_name: multicallapp
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - /project/MultiEsamwad/sounds:/app/sounds
+      - /project/MultiEsamwad/recording:/app/recording
+      - /project/MultiEsamwad/.env:/app/.env
+      - /project/MultiEsamwad/server.js:/app/server.js
+      - /project/MultiEsamwad/ari.js:/app/ari.js
+      - /project/MultiEsamwad/public:/app/public
+    networks:
+      app_network:
+        ipv4_address: 172.18.0.15
+
+  asterisk:
+    image: iotcomdocker/astcon:latest
+    container_name: asterisk
+    restart: unless-stopped
+    ports:
+      - "5060-5061:5060-5061/udp"
+      - "8088-8089:8088-8089"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - /project/MultiEsamwad/recording:/var/spool/asterisk/recording:rw
+      - /project/MultiEsamwad/sounds:/var/lib/asterisk/sounds/en:rw
+      - /var/backups/asterisk:/etc/asterisk:rw
+      - /etc/letsencrypt:/etc/cert:rw
+    networks:
+      app_network:
+        ipv4_address: 172.18.0.17
+
+networks:
+  app_network:
+    external: true
+    name: app_network
+
