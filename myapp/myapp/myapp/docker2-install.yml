@@ -1,0 +1,61 @@
+---
+- name: Install necessary packages on Debian 12
+  hosts: all
+  become: yes
+  vars:
+    apt_packages:
+      - git
+      - docker.io
+      - docker-compose
+      - vim
+      - tcpdump
+      - autossh
+      - jq
+      - certbot
+      - wireguard
+      - bash-completion  # Ensure this is installed for bash completion support
+
+  tasks:
+    - name: Update apt cache (Valid for 1 hour)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: full
+        autoremove: yes
+
+    - name: Install required packages
+      apt:
+        name: "{{ apt_packages }}"
+        state: present
+
+    - name: Check if Docker bash completion exists
+      stat:
+        path: /etc/bash_completion.d/docker
+      register: docker_completion
+
+    - name: Install Docker bash completion
+      get_url:
+        url: https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker
+        dest: /etc/bash_completion.d/docker
+        mode: '0644'
+      when: not docker_completion.stat.exists  # Only download if the file does not exist
+
+    - name: Ensure Docker service is enabled and started
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+      ignore_errors: yes
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Print Docker version
+      debug:
+        msg: "Installed Docker version: {{ docker_version.stdout }}"
+
