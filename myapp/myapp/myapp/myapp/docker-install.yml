@@ -1,0 +1,44 @@
+---
+- name: Install necessary packages on Debian 12
+  hosts: all
+  become: yes
+  vars:
+    apt_packages:
+      - git
+      - docker.io
+      - docker-compose
+      - vim
+      - tcpdump
+      - autossh
+      - jq
+      - certbot
+      - wireguard
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name: "{{ apt_packages }}"
+        state: present
+
+    - name: Install Docker bash completion
+      get_url:
+        url: https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker
+        dest: /etc/bash_completion.d/docker
+        mode: '0644'
+      # This task will only run if the file doesn't already exist.
+      args:
+        creates: /etc/bash_completion.d/docker
+
+    - name: Ensure Docker service is enabled and started
+      systemd:
+        name: docker
+        enabled: yes
+        state: started

@@ -27,7 +27,7 @@
           WORKDIR /app
 
           # Copy package files and install dependencies
-          COPY package.json package-lock.json ./ 
+          COPY package.json package-lock.json ./
           RUN npm install
 
           # Copy all source files
@@ -42,12 +42,8 @@
     - name: Build New Docker Image
       command: docker build -t myapp:latest /root/ansible/myapp
 
-    - name: Stop Old Container
-      command: docker stop rocks
-      ignore_errors: yes
-
-    - name: Force Remove Old Container
-      command: docker rm -f rocks
+    - name: Stop & Remove Old Container
+      command: docker stop rocks || true && docker rm rocks || true
       ignore_errors: yes
 
     - name: Run New Docker Container
