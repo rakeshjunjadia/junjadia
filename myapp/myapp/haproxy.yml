@@ -1,0 +1,68 @@
+---
+- name: Setup HAProxy Load Balancer
+  hosts: haproxy
+  become: yes
+  tasks:
+    - name: Install HAProxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+
+    - name: Configure HAProxy
+      copy:
+        dest: /etc/haproxy/haproxy.cfg
+        content: |
+          frontend http_front
+              bind *:80
+              default_backend backend_servers
+          
+          backend backend_servers
+              balance roundrobin
+              server server1 192.168.1.101:80 check
+              server server2 192.168.1.102:80 check
+
+    - name: Restart HAProxy
+      systemd:
+        name: haproxy
+        state: restarted
+        enabled: yes
+
+- name: Setup Web Servers on Clients
+  hosts: clients
+  become: yes
+  tasks:
+    - name: Install Apache and Nginx
+      apt:
+        name:
+          - apache2
+          - nginx
+        state: present
+        update_cache: yes
+
+    - name: Start and Enable Apache
+      systemd:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Start and Enable Nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Update /etc/resolv.conf to use HAProxy as DNS resolver
+      lineinfile:
+        path: /etc/resolv.conf
+        line: "nameserver 192.168.1.100"
+        state: present
+
+    - name: Update /etc/hosts to resolve domain names
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.100 example.com
+          192.168.1.100 app.example.com
+        state: present
+

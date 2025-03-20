@@ -1,0 +1,85 @@
+---
+- name: Configure DNS Server with BIND9 and Update resolv.conf on Master & Node
+  hosts: all  # Run tasks on all servers (DNS, Master, Node)
+  become: yes
+
+  tasks:
+    - name: Install BIND9 and dependencies (Only on DNS Server)
+      package:
+        name:
+          - bind9
+          - bind9-utils
+          - bind9-doc
+        state: present
+      when: "inventory_hostname in groups['dns_server']"
+
+    - name: Configure named.conf.options (Only on DNS Server)
+      copy:
+        dest: /etc/bind/named.conf.options
+        content: |
+          options {
+              directory "/var/cache/bind";
+              recursion yes;
+              allow-query { any; };
+              forwarders {
+                  8.8.8.8;  // Google DNS
+                  1.1.1.1;  // Cloudflare DNS
+              };
+              dnssec-validation auto;
+              listen-on { any; };
+          } 
+      notify: Restart BIND9
+      when: "inventory_hostname in groups['dns_server']"
+
+    - name: Configure named.conf.local for zone setup (Only on DNS Server)
+      copy:
+        dest: /etc/bind/named.conf.local
+        content: |
+          zone "example.com" {
+              type master;
+              file "/etc/bind/db.example.com";
+          };
+      notify: Restart BIND9
+      when: "inventory_hostname in groups['dns_server']"
+
+    - name: Create DNS zone file (Only on DNS Server)
+      copy:
+        dest: /etc/bind/db.example.com
+        content: |
+          $TTL 604800
+          @       IN      SOA     example.com. root.example.com. (
+                              3         ; Serial
+                              604800    ; Refresh
+                              86400     ; Retry
+                              2419200   ; Expire
+                              604800 )  ; Negative Cache TTL
+          ; Name Servers
+          @       IN      NS      ns1.example.com.
+          ; A Records
+          @       IN      A       192.168.1.10  ; Master Server
+          ns1     IN      A       192.168.1.20  ; DNS Server
+          node    IN      A       192.168.1.30  ; Node Server
+      notify: Restart BIND9
+      when: "inventory_hostname in groups['dns_server']"
+
+    - name: Ensure BIND9 is enabled and running (Only on DNS Server)
+      systemd:
+        name: bind9
+        state: started
+        enabled: yes
+      when: "inventory_hostname in groups['dns_server']"
+
+    - name: Update resolv.conf to use DNS Server (On Master & Node)
+      copy:
+        dest: /etc/resolv.conf
+        content: |
+          nameserver 192.168.1.20
+          search example.com
+      when: "inventory_hostname in groups['master'] or inventory_hostname in groups['node']"
+
+  handlers:
+    - name: Restart BIND9
+      systemd:
+        name: bind9
+        state: restarted
+

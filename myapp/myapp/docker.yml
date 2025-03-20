@@ -1,0 +1,63 @@
+---
+- name: Deploy Docker Containers
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - docker
+          - docker-compose
+          - curl
+          - python3
+          - python3-pip
+          - git
+        state: present
+
+    - name: Install Docker Python SDK
+      pip:
+        name: docker
+        state: present
+
+    - name: Create necessary directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /project/MultiEsamwad
+        - /project/MultiEsamwad/sounds
+        - /project/MultiEsamwad/recording
+        - /var/www
+        - /var/backups/asterisk
+        - /var/www/conf.d
+        - /etc/letsencrypt
+
+    - name: Check if nginx is running
+      command: docker ps --filter "name=nginx" --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: nginx_status
+      changed_when: false
+      failed_when: false
+
+    - name: Check if mongodb is running
+      command: docker ps --filter "name=mongodb" --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: mongodb_status
+      changed_when: false
+      failed_when: false
+
+    - name: Select appropriate compose file
+      set_fact:
+        compose_file: "docker-compose-partial.yml"
+      when: nginx_status.stdout != "nginx" and mongodb_status.stdout != "mongodb"
+
+    - name: Select full compose file if nginx or mongodb is not running
+      set_fact:
+        compose_file: "docker-compose-full.yml"
+      when: nginx_status.stdout == "nginx" or mongodb_status.stdout == "mongodb"
+
+    - name: Deploy using Docker Compose
+      command: docker-compose -f {{ compose_file }} up -d
+      args:
+        chdir: /project/MultiEsamwad/
+

@@ -1,0 +1,27 @@
+---
+- name: Install Kubernetes on Debian 12
+  hosts: all
+  become: yes
+  vars:
+    k8s_version: "1.27"  # Change this to the desired Kubernetes version
+
+  tasks:
+    - name: Update and upgrade system
+      apt:
+        update_cache: yes
+        upgrade: full
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Kubernetes APT key
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/kubernetes-apt-ke
+

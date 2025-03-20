@@ -43,7 +43,7 @@
       command: docker build -t myapp:latest /root/ansible/myapp
 
     - name: Stop & Remove Old Container
-      command: docker stop rocks || true && docker rm -f rocks || true
+      command: docker stop rocks || true && docker rm rocks || true
       ignore_errors: yes
 
     - name: Run New Docker Container

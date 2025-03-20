@@ -1,0 +1,57 @@
+---
+- name: Deploy Nginx with HTTPS for Site1 and Site2
+  hosts: webservers
+  become: yes
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - nginx
+          - openssl
+        state: present
+        update_cache: yes
+
+    - name: Create directories for sites
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /var/www/site1
+        - /var/www/site2
+        - /etc/nginx/ssl
+
+    - name: Generate self-signed SSL certificates
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 
+        -keyout /etc/nginx/ssl/{{ item }}.key 
+        -out /etc/nginx/ssl/{{ item }}.crt 
+        -subj "/C=IN/ST=State/L=City/O=Organization/CN={{ item }}.mywebsite.local"
+      loop:
+        - site1
+        - site2
+      args:
+        creates: "/etc/nginx/ssl/{{ item }}.crt"
+
+    - name: Deploy Nginx configuration for sites
+      template:
+        src: "nginx_site.j2"
+        dest: "/etc/nginx/sites-available/{{ item }}"
+      loop:
+        - site1
+        - site2
+
+    - name: Enable site configurations
+      file:
+        src: "/etc/nginx/sites-available/{{ item }}"
+        dest: "/etc/nginx/sites-enabled/{{ item }}"
+        state: link
+      loop:
+        - site1
+        - site2
+
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
+        enabled: yes
+
